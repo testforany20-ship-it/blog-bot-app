@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>MOHIN TECH Bot Control</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #0b1220; color: #e5e7eb; min-height: 100vh; padding: 16px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  header img { width: 48px; height: 48px; border-radius: 12px; }
+  header h1 { font-size: 20px; line-height: 1.2; }
+  header p { font-size: 13px; color: #94a3b8; }
+  .card { background: #111a2e; border: 1px solid #1f2b45; border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin-bottom: 10px; color: #cbd5e1; }
+  .status-row { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #64748b; flex: none; }
+  .dot.on { background: #22c55e; }
+  .dot.off { background: #ef4444; }
+  .sub { font-size: 13px; color: #94a3b8; margin-top: 6px; }
+  .btns { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  button { flex: 1; min-width: 100px; border: 0; border-radius: 12px; padding: 13px 10px; font-size: 15px; font-weight: 700; cursor: pointer; color: #fff; }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .45; }
+  .run { background: #0f766e; }
+  .pause { background: #b45309; }
+  .resume { background: #15803d; }
+  .refresh { background: #334155; }
+  ul.runs, ul.posts { list-style: none; }
+  ul.runs li, ul.posts li { padding: 9px 0; border-bottom: 1px solid #1f2b45; font-size: 14px; }
+  ul.runs li:last-child, ul.posts li:last-child { border-bottom: 0; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
+  .ok { background: #14532d; color: #86efac; }
+  .bad { background: #7f1d1d; color: #fca5a5; }
+  .mid { background: #3f3f46; color: #d4d4d8; }
+  .time { color: #94a3b8; font-size: 12px; }
+  ul.posts a { color: #7dd3fc; text-decoration: none; font-size: 14px; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #1f2b45; color: #fff; padding: 11px 18px; border-radius: 999px; font-size: 14px; display: none; box-shadow: 0 8px 24px rgba(0,0,0,.5); max-width: 92vw; text-align: center; }
+  input[type="password"], input[type="text"] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #334155; background: #0b1220; color: #fff; font-size: 14px; margin: 8px 0 12px; }
+  .steps { font-size: 13px; color: #94a3b8; line-height: 1.65; }
+  .steps b { color: #cbd5e1; }
+  .link { color: #7dd3fc; }
+  .hidden { display: none; }
+  .small-btn { flex: none; background: #334155; padding: 9px 14px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="icon-192.png" alt="Bot">
+    <div>
+      <h1>MOHIN TECH Bot</h1>
+      <p>ব্লগ অটো-পোস্ট বটের কন্ট্রোল প্যানেল</p>
+    </div>
+  </header>
+
+  <!-- SETUP (shown when no token saved) -->
+  <div class="card" id="setupCard">
+    <h2>🔑 প্রথমবার সেটআপ — GitHub Token লাগবে</h2>
+    <div class="steps">
+      ১. GitHub-এ যাও: <b>Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</b><br>
+      ২. Repository access-এ শুধু <b>blog-bot</b> সিলেক্ট করো<br>
+      ৩. Permissions-এ <b>Actions: Read and write</b> দাও (Metadata নিজে থেকেই থাকে)<br>
+      ৪. Token তৈরি করে কপি করে নিচে বসাও — token শুধু তোমার ফোনেই থাকবে, কোথাও আপলোড হয় না
+    </div>
+    <input type="password" id="tokenInput" placeholder="এখানে token বসাও (github_pat_...)">
+    <div class="btns"><button class="run" id="saveTokenBtn">সেভ করো</button></div>
+  </div>
+
+  <!-- MAIN (shown when token saved) -->
+  <div id="mainUI" class="hidden">
+    <div class="card">
+      <h2>বটের অবস্থা</h2>
+      <div class="status-row"><span class="dot" id="statusDot"></span><span id="statusText">লোড হচ্ছে…</span></div>
+      <div class="sub" id="statusSub"></div>
+      <div class="btns">
+        <button class="run" id="runBtn">▶ এখন চালাও</button>
+        <button class="pause" id="pauseBtn">⏸ থামাও</button>
+        <button class="resume hidden" id="resumeBtn">▶ চালু করো</button>
+      </div>
+      <div class="btns">
+        <button class="refresh" id="refreshBtn">↻ রিফ্রেশ</button>
+        <button class="refresh" id="changeTokenBtn">🔑 Token বদলাও</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>সাম্প্রতিক Run</h2>
+      <ul class="runs" id="runsList"><li class="time">লোড হচ্ছে…</li></ul>
+    </div>
+
+    <div class="card">
+      <h2>ব্লগের সর্বশেষ পোস্ট</h2>
+      <ul class="posts" id="postsList"><li class="time">লোড হচ্ছে…</li></ul>
+      <div class="sub" style="margin-top:8px"><a class="link" href="https://mohintechbd.blogspot.com/" target="_blank" rel="noopener">ব্লগ খুলুন →</a></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const OWNER = "testforany20-ship-it";
+const REPO = "blog-bot";
+const WF = "bot.yml";
+const API = "https://api.github.com/repos/" + OWNER + "/" + REPO;
+
+let token = localStorage.getItem("gh_token") || "";
+
+const $ = id => document.getElementById(id);
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 3200);
+}
+function fmtTime(iso) {
+  try {
+    return new Date(iso).toLocaleString("bn-BD", { timeZone: "Asia/Dhaka", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+  } catch (e) { return iso; }
+}
+async function api(path, opts) {
+  const res = await fetch(API + path, Object.assign({
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28"
+    }
+  }, opts || {}));
+  if (res.status === 401 || res.status === 403) throw new Error("token");
+  return res;
+}
+
+async function loadStatus() {
+  if (!token) return;
+  try {
+    const wfRes = await api("/actions/workflows/" + WF);
+    const wf = await wfRes.json();
+    const runsRes = await api("/actions/workflows/" + WF + "/runs?per_page=5");
+    const runs = await runsRes.json();
+
+    const active = wf.state === "active";
+    $("statusDot").className = "dot " + (active ? "on" : "off");
+    $("statusText").textContent = active ? "বট চালু আছে (প্রতি ঘণ্টায় পোস্ট করে)" : "বট থামানো আছে";
+    $("pauseBtn").classList.toggle("hidden", !active);
+    $("resumeBtn").classList.toggle("hidden", active);
+
+    if (runs.workflow_runs && runs.workflow_runs.length) {
+      const last = runs.workflow_runs[0];
+      $("statusSub").textContent = "সর্বশেষ run: " + fmtTime(last.created_at) + " — " +
+        (last.conclusion === "success" ? "সফল" : last.conclusion === "failure" ? "ব্যর্থ" : (last.status || ""));
+      $("runsList").innerHTML = runs.workflow_runs.map(r => {
+        let badge = '<span class="badge mid">' + (r.status || "") + "</span>";
+        if (r.conclusion === "success") badge = '<span class="badge ok">সফল</span>';
+        if (r.conclusion === "failure") badge = '<span class="badge bad">ব্যর্থ</span>';
+        if (r.status === "in_progress" || r.status === "queued") badge = '<span class="badge mid">চলছে</span>';
+        return "<li>#" + r.run_number + " — " + (r.event === "schedule" ? "অটো (ঘণ্টায়)" : "ম্যানুয়াল") + badge +
+               '<br><span class="time">' + fmtTime(r.created_at) + "</span></li>";
+      }).join("");
+    } else {
+      $("runsList").innerHTML = '<li class="time">কোনো run পাওয়া যায়নি</li>';
+    }
+  } catch (e) {
+    if (e.message === "token") {
+      toast("Token কাজ করছে না — নতুন token বসাও");
+      showSetup();
+    } else {
+      $("statusText").textContent = "লোড করা যায়নি — ইন্টারনেট চেক করে রিফ্রেশ দাও";
+    }
+  }
+}
+
+async function loadPosts() {
+  try {
+    const res = await fetch("https://mohintechbd.blogspot.com/feeds/posts/default?alt=json&max-results=6");
+    const data = await res.json();
+    const entries = (data.feed && data.feed.entry) || [];
+    if (!entries.length) throw new Error("empty");
+    $("postsList").innerHTML = entries.map(en => {
+      const title = en.title.$t;
+      const link = (en.link.find(l => l.rel === "alternate") || {}).href || "https://mohintechbd.blogspot.com/";
+      const when = en.published ? fmtTime(en.published.$t) : "";
+      return '<li><a href="' + link + '" target="_blank" rel="noopener">' + title + '</a><br><span class="time">' + when + "</span></li>";
+    }).join("");
+  } catch (e) {
+    $("postsList").innerHTML = '<li class="time">পোস্ট লোড করা যায়নি</li>';
+  }
+}
+
+async function runNow() {
+  $("runBtn").disabled = true;
+  try {
+    const res = await api("/actions/workflows/" + WF + "/dispatches", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: "main" })
+    });
+    if (res.status === 204) { toast("✅ Bot চালু করা হয়েছে — ১-২ মিনিটে পোস্ট আসবে"); }
+    else { toast("কিছু সমস্যা হয়েছে (code " + res.status + ")"); }
+  } catch (e) { toast("চালু করা যায়নি — token বা ইন্টারনেট চেক করো"); }
+  $("runBtn").disabled = false;
+  setTimeout(loadStatus, 5000);
+}
+
+async function setEnabled(enable) {
+  try {
+    const res = await api("/actions/workflows/" + WF + (enable ? "/enable" : "/disable"), {
+      method: "PUT",
+      headers: { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json" }
+    });
+    if (res.status === 204) toast(enable ? "✅ Bot চালু করা হয়েছে" : "⏸ Bot থামানো হয়েছে");
+    else toast("হয়নি (code " + res.status + ")");
+  } catch (e) { toast("করা যায়নি — token বা ইন্টারনেট চেক করো"); }
+  setTimeout(loadStatus, 1500);
+}
+
+function showSetup() {
+  $("setupCard").classList.remove("hidden");
+  $("mainUI").classList.add("hidden");
+}
+function showMain() {
+  $("setupCard").classList.add("hidden");
+  $("mainUI").classList.remove("hidden");
+  loadStatus();
+  loadPosts();
+}
+
+$("saveTokenBtn").addEventListener("click", () => {
+  const v = $("tokenInput").value.trim();
+  if (!v) { toast("আগে token বসাও"); return; }
+  token = v;
+  localStorage.setItem("gh_token", v);
+  toast("✅ Token সেভ হয়েছে");
+  showMain();
+});
+$("changeTokenBtn").addEventListener("click", () => {
+  localStorage.removeItem("gh_token");
+  token = "";
+  $("tokenInput").value = "";
+  showSetup();
+});
+$("runBtn").addEventListener("click", runNow);
+$("pauseBtn").addEventListener("click", () => setEnabled(false));
+$("resumeBtn").addEventListener("click", () => setEnabled(true));
+$("refreshBtn").addEventListener("click", () => { loadStatus(); loadPosts(); toast("রিফ্রেশ হচ্ছে…"); });
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+if (token) showMain(); else showSetup();
+</script>
+</body>
+</html>
